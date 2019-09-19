@@ -1,4 +1,4 @@
-.. highlightlang:: c
+.. highlight:: c
 
 .. _moduleobjects:
 
@@ -196,17 +196,23 @@ or request "multi-phase initialization" by returning the definition struct itsel
    .. c:member:: traverseproc m_traverse
 
       A traversal function to call during GC traversal of the module object, or
-      *NULL* if not needed.
+      *NULL* if not needed. This function may be called before module state
+      is allocated (:c:func:`PyModule_GetState()` may return `NULL`),
+      and before the :c:member:`Py_mod_exec` function is executed.
 
    .. c:member:: inquiry m_clear
 
       A clear function to call during GC clearing of the module object, or
-      *NULL* if not needed.
+      *NULL* if not needed. This function may be called before module state
+      is allocated (:c:func:`PyModule_GetState()` may return `NULL`),
+      and before the :c:member:`Py_mod_exec` function is executed.
 
    .. c:member:: freefunc m_free
 
       A function to call during deallocation of the module object, or *NULL* if
-      not needed.
+      not needed. This function may be called before module state
+      is allocated (:c:func:`PyModule_GetState()` may return `NULL`),
+      and before the :c:member:`Py_mod_exec` function is executed.
 
 Single-phase initialization
 ...........................
@@ -411,7 +417,22 @@ state:
 
    Add an object to *module* as *name*.  This is a convenience function which can
    be used from the module's initialization function.  This steals a reference to
-   *value*.  Return ``-1`` on error, ``0`` on success.
+   *value* on success.  Return ``-1`` on error, ``0`` on success.
+
+   .. note::
+
+      Unlike other functions that steal references, ``PyModule_AddObject()`` only
+      decrements the reference count of *value* **on success**.
+
+      This means that its return value must be checked, and calling code must
+      :c:func:`Py_DECREF` *value* manually on error. Example usage::
+
+         Py_INCREF(spam);
+         if (PyModule_AddObject(module, "spam", spam) < 0) {
+             Py_DECREF(module);
+             Py_DECREF(spam);
+             return NULL;
+         }
 
 .. c:function:: int PyModule_AddIntConstant(PyObject *module, const char *name, long value)
 
